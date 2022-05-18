@@ -1,0 +1,100 @@
+---
+title: "Series de tiempo"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+MMBtu=Millones de unidades térmicas Británicas.
+
+
+```{r }
+library(readr)
+library(readxl)
+library(lubridate)
+library(xts)
+GP<-read_excel("SerieGas.xlsx")
+GP$Date=as.Date(GP$Date, format="%m/%d/%y")
+GP$Close=as.numeric(GP$Close)
+str(GP)
+GP<-na.omit(GP)
+GAS<-xts(GP$Close, order.by=as.Date(GP$Date), frequency = 365) 
+GAS
+```
+
+```{r}
+library(TSstudio)
+ts_info(GAS)
+plot(GAS,main = "Precio del gas MMBtu",ylab="Precio (USD)")
+```
+
+```{r}
+summary(fit <- lm(GAS~time(GAS), na.action=NULL))
+plot(GAS, ylab="Precio por MMBtu") 
+abline(fit,col = "plum") # Se añade la recta ajusta
+###Eliminamos la tendencia con la predicción la recta
+ETG=GAS-predict(fit)
+plot(ETG,main="Serie GAS Sin tendencia")
+dG=diff(GAS)
+plot.ts(dG, ylim=c(-5,5), main="Serie Diferenciada", ylab='')
+```
+
+
+
+
+
+Autocorrelación 
+```{r}
+par(mar = c(3,2,3,2))
+par(mfrow=c(3,1)) # plot ACFs
+acf(GAS, 48, main="ACF GAS")
+acf(resid(fit), 48, main="ACF Sin tendencia") #Eliminando tendencia lineal.
+acf(diff(GAS), 48, main="ACF Primera Diferencia", na.action = na.pass) 
+
+```
+Transformación de Boxcox
+
+```{r}
+library(FitAR)
+library(forecast)
+forecast::BoxCox.lambda(GAS, method = "guerrero", lower = -1, upper = 3) ###Me entrega el valor de lambda 
+##method="loglik"
+GAs<-ts(GAS)
+FitAR::BoxCox(GAs)###Me entrega una gráfica
+plot(forecast::BoxCox(GAS,lambda=-0.6635473))
+lG=log(GAS)
+par(mar = c(3,2,3,2))
+par(mfrow=c(2,1))
+plot(GAS,main="Serie del precio del GAS sin Transformar")
+plot(lG,main="Series con Transformación BoxCox")
+
+##Box-Cox con timetk
+timetk::box_cox_vec(GAS,lambda = 'auto',silent = F)
+
+```
+
+
+Como no contiene el 1, es necesario aplicar la transformación.
+
+
+
+RETARDOS
+```{r}
+library(astsa)
+par(mar = c(2,2,2,2))
+plot(GAS, main="Indice gas")
+par(mar = c(3,2,3,2))
+astsa::lag1.plot(GAS, 12)  ###El 12 indica cuantos retardos y_t-k contra y_t 
+###Hacer la gráfica con x11()
+```
+
+```{resagos bonitos}
+ts_lags(GAS,lags=1:12)
+```
+
+
+
+
+
